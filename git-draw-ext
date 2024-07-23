@@ -96,7 +96,7 @@
 #     Hide blob content
 #
 #   --show-commitgraph
-#     Only show commit graph, hiding blob, tree and tag
+#     Only show commit graph, hiding blob and tree
 #
 #   --color-scheme <color scheme>
 #     Choose color scheme. <color scheme> can be one of: default, set312,
@@ -248,7 +248,7 @@ Usage: git-draw [options]
   --hide-tagcontent              Don't display tag content
   --hide-treecontent             Don't display tree content
   --hide-blobcontent             Don't display blob content
-  --show-commitgraph             Only show commit graph, hiding blob, tree and tag
+  --show-commitgraph             Only show commit graph, hiding blob and tree
   --color-scheme <color scheme>  Choose color scheme. Can be one of: default,
                                  set312, spectral11, blues9, brbg11, bupu9,
                                  dark28, paired12, pastel19, set19
