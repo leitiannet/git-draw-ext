@@ -95,6 +95,9 @@
 #   --hide-blobcontent
 #     Hide blob content
 #
+#   --show-commitgraph
+#     Only show commit graph, hiding blob, tree and tag
+#
 #   --color-scheme <color scheme>
 #     Choose color scheme. <color scheme> can be one of: default, set312,
 #     spectral11, blues9, brbg11, bupu9, dark28, paired12, pastel19, set19
@@ -210,6 +213,7 @@ showcommitcontent=1
 showtreecontent=1
 showtagcontent=1
 showblobcontent=1
+showcommitgraph=0
 orientation="TB"
 export GIT_DIR=$(git rev-parse --git-dir)
 export GIT_WORK_TREE=$(git rev-parse --show-toplevel)
@@ -244,6 +248,7 @@ Usage: git-draw [options]
   --hide-tagcontent              Don't display tag content
   --hide-treecontent             Don't display tree content
   --hide-blobcontent             Don't display blob content
+  --show-commitgraph             Only show commit graph, hiding blob, tree and tag
   --color-scheme <color scheme>  Choose color scheme. Can be one of: default,
                                  set312, spectral11, blues9, brbg11, bupu9,
                                  dark28, paired12, pastel19, set19
@@ -324,12 +329,32 @@ ls_all_objects_short() {
   done
 }
 
+parse_commit_message() {
+  sed -e '/tree\|parent\|author\|committer/d' $1 | sed -e '1{/^$/d}' -e '${/^$/d}'
+}
+
+parse_tag_message() {
+  sed -e '/object\|type\|tag\|tagger/d' $1 | sed -e '1{/^$/d}' -e '${/^$/d}'
+}
+
 print_dot_objects() {
   ls_all_objects_short | while read id; do
     dotid="_$id"
     object_type=$(git cat-file -t $id)
     objcontent=$(git cat-file -p $id | abbreviate_sha1 |
       perl -pe 's/([^a-zA-Z0-9\n\r])/\\$1/g; s/(\r?\n)?$/\\l/;')
+    # --show-commitgraph时仅显示commit和tag对象，不显示blob和tree对象
+    if [ "$showcommitgraph" == 1 ]; then
+      if [ "$object_type" == "commit" ]; then
+        # 仅显示提交消息，不显示作者和提交者
+        objcontent=$(git cat-file -p $id | parse_commit_message | perl -pe 's/([^a-zA-Z0-9\n\r])/\\$1/g; s/(\r?\n)?$/\\l/;')
+      elif [ "$object_type" == "tag" ]; then
+        # 仅显示标签消息，不显示打标签者
+        objcontent=$(git cat-file -p $id | parse_tag_message | perl -pe 's/([^a-zA-Z0-9\n\r])/\\$1/g; s/(\r?\n)?$/\\l/;')
+      else
+        continue
+      fi
+    fi
 
     case $object_type in
     commit)
@@ -363,6 +388,13 @@ print_dot_objects() {
 
     printf %s "  $dotid [fillcolor=\"$fillcolor\", style=\"filled,rounded\", "\
       "label=\"{{obj:$object_type|$id}|$objcontent}\"]"
+    # --show-commitgraph时仅指向父提交
+    if [ "$showcommitgraph" == 1 -a "$object_type" == "commit" ]; then
+      git cat-file -p $id |
+        perl -ne 'print "  '$dotid' -> _" .
+          `git rev-parse --short='$sha1length' $1` if /parent ([a-f0-9]{40})/'
+      continue
+    fi
 
     # todo: use git's commands to extract the object references
     # BUG: must escape stuff that .dot interprets (\n,\l,\l,|,{},...)
@@ -607,6 +639,22 @@ do
 
     --hide-index)
       showindex=0
+      ;;
+
+    --show-commitgraph)
+      # 设置变量，并自动设置其他变量的默认值，简化命令行参数
+      showcommitgraph=1
+      print_only=1
+      sha1length=7
+      showlegend=0
+      showobjects=1
+      showrefs=1
+      showreflogs=0
+      showindex=0
+      showcommitcontent=1
+      showtreecontent=0
+      showtagcontent=1
+      showblobcontent=0
       ;;
 
     --color-scheme)
